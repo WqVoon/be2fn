@@ -125,6 +125,20 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		return false
 	}
 
+	if be.Op == token.LAND || be.Op == token.LOR {
+		_, xIsBE := be.X.(*ast.BinaryExpr)
+		if !xIsBE && !isParenExprwithBinaryExpr(be.X) && !isUnaryExprWithNotOp(be.X) {
+			l.Err = fmt.Errorf("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
+			return false
+		}
+
+		_, yIsBE := be.Y.(*ast.BinaryExpr)
+		if !yIsBE && !isParenExprwithBinaryExpr(be.Y) && !isUnaryExprWithNotOp(be.Y) {
+			l.Err = fmt.Errorf("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
+			return false
+		}
+	}
+
 	l.Tokens = append(l.Tokens, Token{Typ: be.Op, Val: be.Op.String()})
 	return true
 }
@@ -138,15 +152,8 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 
 	switch ue.Op {
 	case token.NOT:
-		paranExpr, ok := ue.X.(*ast.ParenExpr)
-		if !ok {
-			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
-			return false
-		}
-
-		_, ok = paranExpr.X.(*ast.BinaryExpr)
-		if !ok {
-			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
+		if !isParenExprwithBinaryExpr(ue.X) {
+			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr(with BinaryExpr), err at %v", ue.OpPos)
 			return false
 		}
 
@@ -199,4 +206,25 @@ func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 // 生成无效 token 的错误信息
 func invalidTokenError(t token.Token, pos token.Pos) error {
 	return fmt.Errorf("invalid token(%q) at position(%v)", t, pos)
+}
+
+// 判断 expr 是否为包含 BinaryExpr 的 ParenExpr，给 not/and/or 用，
+// 因为目前 not 操作符只能处理这种表达式，and/or 只能处理这种以及 BinaryExpr
+func isParenExprwithBinaryExpr(expr ast.Expr) bool {
+	paranExpr, ok := expr.(*ast.ParenExpr)
+	if !ok {
+		return false
+	}
+
+	_, ok = paranExpr.X.(*ast.BinaryExpr)
+	return ok
+}
+
+// 判断 expr 是否为 not 的一元表达式
+func isUnaryExprWithNotOp(expr ast.Expr) bool {
+	be, ok := expr.(*ast.UnaryExpr)
+	if !ok {
+		return false
+	}
+	return be.Op == token.NOT
 }
