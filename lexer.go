@@ -71,28 +71,32 @@ func (l *Lexer) Parse() error {
 		return err
 	}
 
-	l.walk(expr)
-	return l.Err
+	return l.walk(expr)
 }
 
 // 后序遍历 AST
-func (l *Lexer) walk(node ast.Node) {
+func (l *Lexer) walk(node ast.Node) error {
 	switch n := node.(type) {
 	case *ast.BinaryExpr:
-		l.walk(n.X)
-		l.walk(n.Y)
+		if err := l.walk(n.X); err != nil {
+			return err
+		}
+		if err := l.walk(n.Y); err != nil {
+			return err
+		}
 
 	case *ast.ParenExpr:
 		l.walk(n.X)
-		return
+		return l.Err
 
 	case *ast.UnaryExpr:
-		l.walk(n.X)
+		if err := l.walk(n.X); err != nil {
+			return err
+		}
 	}
 
-	if l.handleOneNode(node) {
-		return
-	}
+	l.handleOneNode(node)
+	return l.Err
 }
 
 // 处理一个 ast 节点
