@@ -11,22 +11,22 @@ import (
 
 // 表达式中允许出现的 token 类型
 var isValidTokenType = map[token.Token]bool{
-	token.ILLEGAL: true,
-	token.EOF:     true,
+	token.ILLEGAL: true, // 目前用来代表布尔值
+	token.EOF:     true, // 文件尾
 
-	token.IDENT:  true,
-	token.INT:    true,
-	token.STRING: true,
+	token.IDENT:  true, // 标识符
+	token.INT:    true, // 整数
+	token.STRING: true, // 字符串
 
-	token.LAND: true,
-	token.LOR:  true,
-	token.EQL:  true,
-	token.LSS:  true,
-	token.GTR:  true,
-	token.NOT:  true,
-	token.NEQ:  true,
-	token.LEQ:  true,
-	token.GEQ:  true,
+	token.LAND: true, // &&
+	token.LOR:  true, // ||
+	token.NOT:  true, // !
+	token.EQL:  true, // ==
+	token.NEQ:  true, // !=
+	token.LSS:  true, // <
+	token.LEQ:  true, // <=
+	token.GTR:  true, // >
+	token.GEQ:  true, // >=
 }
 
 type Token struct {
