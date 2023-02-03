@@ -11,16 +11,21 @@ import (
 
 // 表达式中允许出现的 token 类型
 var isValidTokenType = map[token.Token]bool{
+	token.EOF: true, // 文件尾
+
+	// 可以被比较的东西
 	token.ILLEGAL: true, // 目前用来代表布尔值
-	token.EOF:     true, // 文件尾
+	token.IDENT:   true, // 标识符
+	token.INT:     true, // 整数
+	token.STRING:  true, // 字符串
 
-	token.IDENT:  true, // 标识符
-	token.INT:    true, // 整数
-	token.STRING: true, // 字符串
+	// 一元表达式操作符
+	token.NOT: true, // !
+	token.SUB: true, // -，目前只用来处理负数，类似 `-1` 这种后面直接跟数字的
 
+	// 二元表达式操作符
 	token.LAND: true, // &&
 	token.LOR:  true, // ||
-	token.NOT:  true, // !
 	token.EQL:  true, // ==
 	token.NEQ:  true, // !=
 	token.LSS:  true, // <
@@ -28,7 +33,6 @@ var isValidTokenType = map[token.Token]bool{
 	token.GTR:  true, // >
 	token.GEQ:  true, // >=
 
-	token.SUB: true, // -，目前只用来处理负数，类似 `-1` 这种后面直接跟数字的
 }
 
 type Token struct {
