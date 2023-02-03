@@ -27,6 +27,8 @@ var isValidTokenType = map[token.Token]bool{
 	token.LEQ:  true, // <=
 	token.GTR:  true, // >
 	token.GEQ:  true, // >=
+
+	token.SUB: true, // -，目前只用来处理负数，类似 `-1` 这种后面直接跟数字的
 }
 
 type Token struct {
@@ -134,16 +136,25 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 		return false
 	}
 
-	paranExpr, ok := ue.X.(*ast.ParenExpr)
-	if !ok {
-		l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
-		return false
-	}
+	switch ue.Op {
+	case token.NOT:
+		paranExpr, ok := ue.X.(*ast.ParenExpr)
+		if !ok {
+			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
+			return false
+		}
 
-	_, ok = paranExpr.X.(*ast.BinaryExpr)
-	if !ok {
-		l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
-		return false
+		_, ok = paranExpr.X.(*ast.BinaryExpr)
+		if !ok {
+			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
+			return false
+		}
+
+	case token.SUB:
+		basicLit, ok := ue.X.(*ast.BasicLit)
+		if !ok || basicLit.Kind != token.INT {
+			l.Err = fmt.Errorf("`-`'s subExpr must be number, err at %v", ue.OpPos)
+		}
 	}
 
 	l.Tokens = append(l.Tokens, Token{Typ: ue.Op, Val: ue.Op.String()})

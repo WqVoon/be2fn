@@ -41,3 +41,24 @@ func TestNotExpr(t *testing.T) {
 		}
 	}
 }
+
+func TestSubExpr(t *testing.T) {
+	cases := []struct {
+		Expr        string
+		ShouldError bool
+	}{
+		{"-a", true},
+		{"-1", false},
+		{"-+1", true},
+		{"--1", true},
+		{"-(1)", true},
+	}
+
+	for i, c := range cases {
+		hasError := (NewLexer(c.Expr, 10).Parse() != nil)
+
+		if c.ShouldError && !hasError || !c.ShouldError && hasError {
+			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)
+		}
+	}
+}
