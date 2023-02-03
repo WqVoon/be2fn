@@ -143,6 +143,16 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		}
 	}
 
+	if isBasicLit(be.X) && isBasicLit(be.Y) {
+		l.Err = fmt.Errorf("both subExpr of `%s` is BasicLit, err at %v", be.Op, be.OpPos)
+		return false
+	}
+
+	if isIdent(be.X) && isIdent(be.Y) {
+		l.Err = fmt.Errorf("both subExpr of `%s` is Ident, err at %v", be.Op, be.OpPos)
+		return false
+	}
+
 	l.Tokens = append(l.Tokens, Token{Typ: be.Op, Val: be.Op.String()})
 	return true
 }
@@ -210,6 +220,18 @@ func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 // 生成无效 token 的错误信息
 func invalidTokenError(t token.Token, pos token.Pos) error {
 	return fmt.Errorf("invalid token(%q) at position(%v)", t, pos)
+}
+
+// 判断 expr 是否是标识符
+func isIdent(expr ast.Expr) bool {
+	_, isIdent := expr.(*ast.Ident)
+	return isIdent
+}
+
+// 判断 expr 是否是字符串或数字
+func isBasicLit(expr ast.Expr) bool {
+	_, isBasicLit := expr.(*ast.BasicLit)
+	return isBasicLit
 }
 
 // 判断 expr 是否为包含 BinaryExpr 的 ParenExpr，给 not/and/or 用，
