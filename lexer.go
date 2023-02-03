@@ -78,6 +78,7 @@ func (l *Lexer) walk(node ast.Node) {
 
 	case *ast.ParenExpr:
 		l.walk(n.X)
+		return
 
 	case *ast.UnaryExpr:
 		l.walk(n.X)
@@ -130,6 +131,18 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 	if !isValidTokenType[ue.Op] {
 		l.Err = invalidTokenError(ue.Op, ue.OpPos)
+		return false
+	}
+
+	paranExpr, ok := ue.X.(*ast.ParenExpr)
+	if !ok {
+		l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
+		return false
+	}
+
+	_, ok = paranExpr.X.(*ast.BinaryExpr)
+	if !ok {
+		l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr with BinaryExpr, err at %v", ue.OpPos)
 		return false
 	}
 
