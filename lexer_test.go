@@ -29,7 +29,7 @@ func TestNotExpr(t *testing.T) {
 		{"!!(a)", true},
 		{"!!!(a)", true},
 		{"!a && b", true},
-		{"!(a && b)", false},
+		{"!(a==1 && b==1)", false},
 		{"!!(a && b)", true},
 	}
 
@@ -52,6 +52,26 @@ func TestSubExpr(t *testing.T) {
 		{"-+1", true},
 		{"--1", true},
 		{"-(1)", true},
+	}
+
+	for i, c := range cases {
+		hasError := (NewLexer(c.Expr, 10).Parse() != nil)
+
+		if c.ShouldError && !hasError || !c.ShouldError && hasError {
+			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)
+		}
+	}
+}
+
+func TestBinaryExpr(t *testing.T) {
+	cases := []struct {
+		Expr        string
+		ShouldError bool
+	}{
+		{"a == a", true},
+		{"a == 1", false},
+		{"1 == 1", true},
+		{"1 == a", false},
 	}
 
 	for i, c := range cases {

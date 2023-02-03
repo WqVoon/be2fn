@@ -152,9 +152,12 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		return false
 	}
 
-	if isIdent(be.X) && isIdent(be.Y) { // 不支持操作数均为变量的判断
-		l.Err = fmt.Errorf("both subExpr of `%s` is Ident, err at %v", be.Op, be.OpPos)
-		return false
+	if isIdent(be.X) && isIdent(be.Y) { // 不支持操作数均为变量或布尔值的判断
+		xIsBool, yIsBool := isBoolIdent(be.X.(*ast.Ident)), isBoolIdent(be.Y.(*ast.Ident))
+		if (xIsBool && yIsBool) || (!xIsBool && !yIsBool) {
+			l.Err = fmt.Errorf("both subExpr of `%s` is BoolValue or Ident, err at %v", be.Op, be.OpPos)
+			return false
+		}
 	}
 
 	l.Tokens = append(l.Tokens, Token{Typ: be.Op, Val: be.Op.String()})
@@ -209,13 +212,12 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 
 // 处理标识符或布尔值
 func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
-	name := it.Name
-	if name == "true" || name == "false" {
-		boolVal, _ := strconv.ParseBool(name)
+	if isBoolIdent(it) {
+		boolVal, _ := strconv.ParseBool(it.Name)
 		// bool 值使用 ILLEGAL 特殊标识
 		l.Tokens = append(l.Tokens, Token{Typ: token.ILLEGAL, IsBoolean: true, BoolVal: boolVal})
 	} else {
-		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, Val: name})
+		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, Val: it.Name})
 	}
 
 	return true
@@ -236,6 +238,10 @@ func isIdent(expr ast.Expr) bool {
 func isBasicLit(expr ast.Expr) bool {
 	_, isBasicLit := expr.(*ast.BasicLit)
 	return isBasicLit
+}
+
+func isBoolIdent(ident *ast.Ident) bool {
+	return ident.Name == "true" || ident.Name == "false"
 }
 
 // 判断 expr 是否为包含 BinaryExpr 的 ParenExpr，给 not/and/or 用，
