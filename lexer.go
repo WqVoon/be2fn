@@ -39,17 +39,17 @@ type Token struct {
 	Typ token.Token
 	Val string
 
-	IsBoolean bool
-	BoolVal   bool
+	IsBoolean bool // 当前 token 是否是一个布尔值，如果是则 Typ 字段为 token.ILLEGAL
+	BoolVal   bool // IsBoolean 为 true 时，BoolVal 代表真正的布尔值内容
 }
 
 type Lexer struct {
-	Err        error
-	HasParsed  bool
-	SourceCode string
-	Tokens     []Token
+	Err        error   // 解析时遇到的错误
+	HasParsed  bool    // 是否已经解析过
+	SourceCode string  // 原表达式
+	Tokens     []Token // 解析的结果，是一个合法的逆波兰表达式的 token 序列
 
-	ExecWhenWalk func(node ast.Node)
+	ExecWhenWalk func(node ast.Node) // 可以自定义的函数，针对 AST 上的每个节点都会执行
 }
 
 func NewLexer(sourceCode string, tokenSize int) *Lexer {
@@ -129,7 +129,7 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		return false
 	}
 
-	if be.Op == token.LAND || be.Op == token.LOR {
+	if be.Op == token.LAND || be.Op == token.LOR { // and/or 的子表达式必须为二元表达式或括号包裹的二元表达式
 		_, xIsBE := be.X.(*ast.BinaryExpr)
 		if !xIsBE && !isParenExprwithBinaryExpr(be.X) && !isUnaryExprWithNotOp(be.X) {
 			l.Err = fmt.Errorf("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
@@ -143,12 +143,12 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		}
 	}
 
-	if isBasicLit(be.X) && isBasicLit(be.Y) {
+	if isBasicLit(be.X) && isBasicLit(be.Y) { // 不支持操作数均为常量的判断
 		l.Err = fmt.Errorf("both subExpr of `%s` is BasicLit, err at %v", be.Op, be.OpPos)
 		return false
 	}
 
-	if isIdent(be.X) && isIdent(be.Y) {
+	if isIdent(be.X) && isIdent(be.Y) { // 不支持操作数均为变量的判断
 		l.Err = fmt.Errorf("both subExpr of `%s` is Ident, err at %v", be.Op, be.OpPos)
 		return false
 	}
@@ -166,14 +166,14 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 
 	switch ue.Op {
 	case token.NOT:
-		if !isParenExprwithBinaryExpr(ue.X) {
+		if !isParenExprwithBinaryExpr(ue.X) { // not 的子表达式必须是括号包裹的二元表达式
 			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr(with BinaryExpr), err at %v", ue.OpPos)
 			return false
 		}
 
 	case token.SUB:
 		basicLit, ok := ue.X.(*ast.BasicLit)
-		if !ok || basicLit.Kind != token.INT {
+		if !ok || basicLit.Kind != token.INT { // 负号后面必须跟着一个数字常量
 			l.Err = fmt.Errorf("`-`'s subExpr must be number, err at %v", ue.OpPos)
 		}
 	}
