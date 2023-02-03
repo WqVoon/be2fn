@@ -14,10 +14,9 @@ var isValidTokenType = map[token.Token]bool{
 	token.EOF: true, // 文件尾
 
 	// 可以被比较的东西
-	token.ILLEGAL: true, // 目前用来代表布尔值
-	token.IDENT:   true, // 标识符
-	token.INT:     true, // 整数
-	token.STRING:  true, // 字符串
+	token.IDENT:  true, // 标识符
+	token.INT:    true, // 整数
+	token.STRING: true, // 字符串
 
 	// 一元表达式操作符
 	token.NOT: true, // !
@@ -214,8 +213,7 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 	if isBoolIdent(it) {
 		boolVal, _ := strconv.ParseBool(it.Name)
-		// bool 值使用 ILLEGAL 特殊标识
-		l.Tokens = append(l.Tokens, Token{Typ: token.ILLEGAL, IsBoolean: true, BoolVal: boolVal})
+		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, IsBoolean: true, BoolVal: boolVal})
 	} else {
 		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, Val: it.Name})
 	}
