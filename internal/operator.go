@@ -1,4 +1,4 @@
-package be2fn
+package internal
 
 import (
 	"errors"
