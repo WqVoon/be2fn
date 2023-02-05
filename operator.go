@@ -1,163 +1,410 @@
 package be2fn
 
+import (
+	"errors"
+	"go/token"
+)
+
 // 一个可以被执行并获取结果的函数
-type Unit func(Kv) bool
+type Unit func(Kv) (bool, error)
 
-// 运算符函数集
-type OperatorSetIface interface {
-	// >
-	GreaterThenIntLeft(varname string, val int64) Unit
-	GreaterThenIntRight(val int64, varname string) Unit
-	GreaterThenStringLeft(varname string, val string) Unit
-	GreaterThenStringRight(val string, varname string) Unit
-
-	// >=
-	GreaterThenOrEqualToIntLeft(varname string, val int64) Unit
-	GreaterThenOrEqualToIntRight(val int64, varname string) Unit
-	GreaterThenOrEqualToStringLeft(varname string, val string) Unit
-	GreaterThenOrEqualToStringRight(val string, varname string) Unit
-
-	// <
-	LessThenIntLeft(varname string, val int64) Unit
-	LessThenIntRight(val int64, varname string) Unit
-	LessThenStringLeft(varname string, val string) Unit
-	LessThenStringRight(val string, varname string) Unit
-
-	// <=
-	LessThenOrEqualToIntLeft(varname string, val int64) Unit
-	LessThenOrEqualToIntRight(val int64, varname string) Unit
-	LessThenOrEqualToStringLeft(varname string, val string) Unit
-	LessThenOrEqualToStringRight(val string, varname string) Unit
-
-	// ==
-	EqualToIntLeft(varname string, val int64) Unit
-	EqualToIntRight(val int64, varname string) Unit
-	EqualToStringLeft(varname string, val string) Unit
-	EqualToStringRight(val string, varname string) Unit
-	EqualToBoolLeft(varname string, val bool) Unit
-	EqualToBoolRight(bool string, varname string) Unit
-
-	// !=
-	NotEqualToIntLeft(varname string, val int64) Unit
-	NotEqualToIntRight(val int64, varname string) Unit
-	NotEqualToStringLeft(varname string, val string) Unit
-	NotEqualToStringRight(val string, varname string) Unit
-	NotEqualToBoolLeft(varname string, val bool) Unit
-	NotEqualToBoolRight(bool string, varname string) Unit
+// shortcut，如果执行 Unit 时遇到错误，那么返回 false，否则直接返回 Unit 的返回值
+func (u Unit) GetBool(vars Kv) bool {
+	ret, err := u(vars)
+	if err != nil {
+		return false
+	}
+	return ret
 }
 
 // &&
 func And(x, y Unit) Unit {
-	return func(vals Kv) bool {
-		return x(vals) && y(vals)
+	return func(vals Kv) (bool, error) {
+		xVal, xErr := x(vals)
+		if xErr != nil {
+			return false, xErr
+		}
+
+		yVal, yErr := y(vals)
+		if yErr != nil {
+			return false, yErr
+		}
+		return (xVal && yVal), nil
 	}
 }
 
 // ||
 func Or(x, y Unit) Unit {
-	return func(vals Kv) bool {
-		return x(vals) || y(vals)
+	return func(vals Kv) (bool, error) {
+		xVal, xErr := x(vals)
+		if xErr != nil {
+			return false, xErr
+		}
+
+		yVal, yErr := y(vals)
+		if yErr != nil {
+			return false, yErr
+		}
+		return (xVal || yVal), nil
 	}
 }
 
 // !
 func Not(x Unit) Unit {
-	return func(vals Kv) bool {
-		return !x(vals)
+	return func(vals Kv) (bool, error) {
+		xVal, xErr := x(vals)
+		if xErr != nil {
+			return false, xErr
+		}
+		return !xVal, nil
 	}
 }
 
+// 二元运算符函数集，每个运算符都包含这些函数
+type OperatorFuncs struct {
+	// 变量比较整数
+	VarToInt func(varname string, val int) Unit
+	// 整数比较变量
+	IntToVar func(val int, varname string) Unit
+
+	// 变量比较字符串
+	VarToStr func(varname string, val string) Unit
+	// 字符串比较变量
+	StrToVar func(val string, varname string) Unit
+
+	// 变量比较布尔值
+	VarToBool func(varname string, val bool) Unit
+	// 布尔值比较变量
+	BoolToVar func(val bool, varname string) Unit
+}
+
 // 运算符函数集的默认实现
-type DefaultOperatorSet struct{}
+var DefaultOperatorSet = map[token.Token]OperatorFuncs{
+	// ==
+	token.EQL: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal == val), nil
+			}
+		},
 
-var _ OperatorSetIface = &DefaultOperatorSet{}
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val == intVal), nil
+			}
+		},
 
-func (*DefaultOperatorSet) GreaterThenIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenStringRight(val string, varname string) Unit {
-	return nil
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal == val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val == strVal), nil
+			}
+		},
+
+		VarToBool: func(varname string, val bool) Unit {
+			return func(vars Kv) (bool, error) {
+				boolVal, err := vars.GetBool(varname)
+				if err != nil {
+					return false, err
+				}
+				return (boolVal == val), nil
+			}
+		},
+
+		BoolToVar: func(val bool, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				boolVal, err := vars.GetBool(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val == boolVal), nil
+			}
+		},
+	},
+
+	// !=
+	token.NEQ: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal != val), nil
+			}
+		},
+
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val != intVal), nil
+			}
+		},
+
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal != val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val != strVal), nil
+			}
+		},
+
+		VarToBool: func(varname string, val bool) Unit {
+			return func(vars Kv) (bool, error) {
+				boolVal, err := vars.GetBool(varname)
+				if err != nil {
+					return false, err
+				}
+				return (boolVal != val), nil
+			}
+		},
+
+		BoolToVar: func(val bool, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				boolVal, err := vars.GetBool(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val != boolVal), nil
+			}
+		},
+	},
+
+	// <
+	token.LSS: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal < val), nil
+			}
+		},
+
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val < intVal), nil
+			}
+		},
+
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal < val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val < strVal), nil
+			}
+		},
+
+		VarToBool: CompareBooleanLeft,
+
+		BoolToVar: CompareBooleanRight,
+	},
+
+	// <=
+	token.LEQ: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal <= val), nil
+			}
+		},
+
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val <= intVal), nil
+			}
+		},
+
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal <= val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val <= strVal), nil
+			}
+		},
+
+		VarToBool: CompareBooleanLeft,
+
+		BoolToVar: CompareBooleanRight,
+	},
+
+	// >
+	token.GTR: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal > val), nil
+			}
+		},
+
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val > intVal), nil
+			}
+		},
+
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal > val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val > strVal), nil
+			}
+		},
+
+		VarToBool: CompareBooleanLeft,
+
+		BoolToVar: CompareBooleanRight,
+	},
+
+	// >=
+	token.GEQ: {
+		VarToInt: func(varname string, val int) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (intVal >= val), nil
+			}
+		},
+
+		IntToVar: func(val int, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				intVal, err := vars.GetInt(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val >= intVal), nil
+			}
+		},
+
+		VarToStr: func(varname string, val string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (strVal >= val), nil
+			}
+		},
+
+		StrToVar: func(val string, varname string) Unit {
+			return func(vars Kv) (bool, error) {
+				strVal, err := vars.GetString(varname)
+				if err != nil {
+					return false, err
+				}
+				return (val >= strVal), nil
+			}
+		},
+
+		VarToBool: CompareBooleanLeft,
+
+		BoolToVar: CompareBooleanRight,
+	},
 }
 
-func (*DefaultOperatorSet) GreaterThenOrEqualToIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenOrEqualToIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenOrEqualToStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) GreaterThenOrEqualToStringRight(val string, varname string) Unit {
-	return nil
+// 布尔值无法比较大小，所以直接返回错误
+func CompareBooleanLeft(varname string, val bool) Unit {
+	return func(vars Kv) (bool, error) {
+		return false, errors.New("boolean values cannot compare numeric sizes")
+	}
 }
 
-func (*DefaultOperatorSet) LessThenIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenStringRight(val string, varname string) Unit {
-	return nil
-}
-
-func (*DefaultOperatorSet) LessThenOrEqualToIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenOrEqualToIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenOrEqualToStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) LessThenOrEqualToStringRight(val string, varname string) Unit {
-	return nil
-}
-
-func (*DefaultOperatorSet) EqualToIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) EqualToIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) EqualToStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) EqualToStringRight(val string, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) EqualToBoolLeft(varname string, val bool) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) EqualToBoolRight(bool string, varname string) Unit {
-	return nil
-}
-
-func (*DefaultOperatorSet) NotEqualToIntLeft(varname string, val int64) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) NotEqualToIntRight(val int64, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) NotEqualToStringLeft(varname string, val string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) NotEqualToStringRight(val string, varname string) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) NotEqualToBoolLeft(varname string, val bool) Unit {
-	return nil
-}
-func (*DefaultOperatorSet) NotEqualToBoolRight(bool string, varname string) Unit {
-	return nil
+// 布尔值无法比较大小，所以直接返回错误
+func CompareBooleanRight(val bool, varname string) Unit {
+	return func(vars Kv) (bool, error) {
+		return false, errors.New("boolean values cannot compare numeric sizes")
+	}
 }
