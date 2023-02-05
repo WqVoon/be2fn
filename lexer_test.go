@@ -7,7 +7,7 @@ import (
 func TestLexer(t *testing.T) {
 	expr := ` (a >= true) || (b <= "abc") && (c == false) && !(d != true)  `
 
-	l := NewLexer(expr, 10)
+	l := NewLexer(expr)
 	if err := l.Parse(); err != nil {
 		t.Fatalf("faild to parse expr, err: %v\n", err)
 	}
@@ -34,7 +34,7 @@ func TestNotExpr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		hasError := (NewLexer(c.Expr, 10).Parse() != nil)
+		hasError := (NewLexer(c.Expr).Parse() != nil)
 
 		if c.ShouldError && !hasError || !c.ShouldError && hasError {
 			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)
@@ -55,7 +55,7 @@ func TestSubExpr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		hasError := (NewLexer(c.Expr, 10).Parse() != nil)
+		hasError := (NewLexer(c.Expr).Parse() != nil)
 
 		if c.ShouldError && !hasError || !c.ShouldError && hasError {
 			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)
@@ -75,7 +75,7 @@ func TestBinaryExpr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		hasError := (NewLexer(c.Expr, 10).Parse() != nil)
+		hasError := (NewLexer(c.Expr).Parse() != nil)
 
 		if c.ShouldError && !hasError || !c.ShouldError && hasError {
 			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)

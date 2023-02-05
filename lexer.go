@@ -40,6 +40,8 @@ type Token struct {
 
 	IsBoolean bool // 当前 token 是否是一个布尔值，如果是则 Typ 字段为 token.ILLEGAL
 	BoolVal   bool // IsBoolean 为 true 时，BoolVal 代表真正的布尔值内容
+
+	IntVal int // 当前 token 是数字时，这里保存实际的值
 }
 
 type Lexer struct {
@@ -51,7 +53,14 @@ type Lexer struct {
 	ExecWhenWalk func(node ast.Node) // 可以自定义的函数，针对 AST 上的每个节点都会执行
 }
 
-func NewLexer(sourceCode string, tokenSize int) *Lexer {
+func NewLexer(sourceCode string) *Lexer {
+	return &Lexer{
+		SourceCode: sourceCode,
+		Tokens:     make([]Token, 0, len(sourceCode)/2),
+	}
+}
+
+func NewLexerWithTokenSize(sourceCode string, tokenSize int) *Lexer {
 	return &Lexer{
 		SourceCode: sourceCode,
 		Tokens:     make([]Token, 0, tokenSize),
@@ -197,7 +206,8 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 
 	switch lt.Kind {
 	case token.INT:
-		l.Tokens = append(l.Tokens, Token{Typ: lt.Kind, Val: lt.Value})
+		intVal, _ := strconv.ParseInt(lt.Value, 10, 64)
+		l.Tokens = append(l.Tokens, Token{Typ: lt.Kind, Val: lt.Value, IntVal: int(intVal)})
 
 	case token.STRING:
 		l.Tokens = append(l.Tokens, Token{Typ: lt.Kind, Val: strings.Trim(lt.Value, `"`)})
