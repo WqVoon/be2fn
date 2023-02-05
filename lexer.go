@@ -44,11 +44,23 @@ type Token struct {
 	IntVal int // 当前 token 是数字时，这里保存实际的值
 }
 
+func (t *Token) String() string {
+	const fomrat = "type(%v), val(%v)"
+
+	if t.IsBoolean {
+		return fmt.Sprintf(fomrat, "bool", t.BoolVal)
+	}
+	if t.Typ == token.INT {
+		return fmt.Sprintf(fomrat, t.Typ, t.IntVal)
+	}
+	return fmt.Sprintf(fomrat, t.Typ, t.Val)
+}
+
 type Lexer struct {
-	Err        error   // 解析时遇到的错误
-	HasParsed  bool    // 是否已经解析过
-	SourceCode string  // 原表达式
-	Tokens     []Token // 解析的结果，是一个合法的逆波兰表达式的 token 序列
+	Err        error    // 解析时遇到的错误
+	HasParsed  bool     // 是否已经解析过
+	SourceCode string   // 原表达式
+	Tokens     []*Token // 解析的结果，是一个合法的逆波兰表达式的 token 序列
 
 	ExecWhenWalk func(node ast.Node) // 可以自定义的函数，针对 AST 上的每个节点都会执行
 }
@@ -56,14 +68,14 @@ type Lexer struct {
 func NewLexer(sourceCode string) *Lexer {
 	return &Lexer{
 		SourceCode: sourceCode,
-		Tokens:     make([]Token, 0, len(sourceCode)/2),
+		Tokens:     make([]*Token, 0, len(sourceCode)/2),
 	}
 }
 
 func NewLexerWithTokenSize(sourceCode string, tokenSize int) *Lexer {
 	return &Lexer{
 		SourceCode: sourceCode,
-		Tokens:     make([]Token, 0, tokenSize),
+		Tokens:     make([]*Token, 0, tokenSize),
 	}
 }
 
@@ -168,7 +180,7 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		}
 	}
 
-	l.Tokens = append(l.Tokens, Token{Typ: be.Op, Val: be.Op.String()})
+	l.Tokens = append(l.Tokens, &Token{Typ: be.Op, Val: be.Op.String()})
 	return true
 }
 
@@ -193,7 +205,7 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 		}
 	}
 
-	l.Tokens = append(l.Tokens, Token{Typ: ue.Op, Val: ue.Op.String()})
+	l.Tokens = append(l.Tokens, &Token{Typ: ue.Op, Val: ue.Op.String()})
 	return true
 }
 
@@ -207,10 +219,10 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 	switch lt.Kind {
 	case token.INT:
 		intVal, _ := strconv.ParseInt(lt.Value, 10, 64)
-		l.Tokens = append(l.Tokens, Token{Typ: lt.Kind, Val: lt.Value, IntVal: int(intVal)})
+		l.Tokens = append(l.Tokens, &Token{Typ: lt.Kind, Val: lt.Value, IntVal: int(intVal)})
 
 	case token.STRING:
-		l.Tokens = append(l.Tokens, Token{Typ: lt.Kind, Val: strings.Trim(lt.Value, `"`)})
+		l.Tokens = append(l.Tokens, &Token{Typ: lt.Kind, Val: strings.Trim(lt.Value, `"`)})
 
 	default:
 		return false
@@ -223,9 +235,9 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 	if isBoolIdent(it) {
 		boolVal, _ := strconv.ParseBool(it.Name)
-		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, IsBoolean: true, BoolVal: boolVal})
+		l.Tokens = append(l.Tokens, &Token{Typ: token.IDENT, IsBoolean: true, BoolVal: boolVal})
 	} else {
-		l.Tokens = append(l.Tokens, Token{Typ: token.IDENT, Val: it.Name})
+		l.Tokens = append(l.Tokens, &Token{Typ: token.IDENT, Val: it.Name})
 	}
 
 	return true
