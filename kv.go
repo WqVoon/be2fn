@@ -29,7 +29,7 @@ func (vars Kv) GetStringOrDefault(key, defaultVal string) string {
 func (vars Kv) GetInt(key string) (int, error) {
 	val, ok := vars[key].(int)
 	if !ok {
-		return val, fmt.Errorf("failed to get int64 by key(%s)", key)
+		return val, fmt.Errorf("failed to get int by key(%s)", key)
 	}
 	return val, nil
 }
