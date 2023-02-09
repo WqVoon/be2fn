@@ -9,58 +9,38 @@ import (
 	"strings"
 )
 
-// 表达式中允许出现的 token 类型
-var isValidTokenType = map[token.Token]bool{
-	token.EOF: true, // 文件尾
+type Param struct {
+	Typ Token
 
-	// 可以被比较的东西
-	token.IDENT:  true, // 标识符
-	token.INT:    true, // 整数
-	token.STRING: true, // 字符串
-
-	// 一元表达式操作符
-	token.NOT: true, // !
-	token.SUB: true, // -，目前只用来处理负数，类似 `-1` 这种后面直接跟数字的
-
-	// 二元表达式操作符
-	token.LAND: true, // &&
-	token.LOR:  true, // ||
-	token.EQL:  true, // ==
-	token.NEQ:  true, // !=
-	token.LSS:  true, // <
-	token.LEQ:  true, // <=
-	token.GTR:  true, // >
-	token.GEQ:  true, // >=
-
+	Val         string   // 其他类型的 token，这里保存实际的值
+	BoolVal     bool     // 当前 token 是布尔值时，这里保存实际的值
+	IntVal      int      // 当前 token 是数字时，这里保存实际的值
+	IntSliceVal []int    // 当前 token 是数字切片时，这里保存实际的值
+	StrSliceVal []string // 当前 token 是字符串切片时，这里保存实际的值
 }
 
-type Token struct {
-	Typ token.Token
-	Val string
+func (t *Param) String() string {
+	const format = "type(%v), val(%v)"
 
-	IsBoolean bool // 当前 token 是否是一个布尔值，如果是则 Typ 字段为 token.ILLEGAL
-	BoolVal   bool // IsBoolean 为 true 时，BoolVal 代表真正的布尔值内容
-
-	IntVal int // 当前 token 是数字时，这里保存实际的值
-}
-
-func (t *Token) String() string {
-	const fomrat = "type(%v), val(%v)"
-
-	if t.IsBoolean {
-		return fmt.Sprintf(fomrat, "bool", t.BoolVal)
+	switch t.Typ {
+	case BOOLEAN:
+		return fmt.Sprintf(format, t.Typ, t.BoolVal)
+	case INT:
+		return fmt.Sprintf(format, t.Typ, t.IntVal)
+	case INT_SLICE:
+		return fmt.Sprintf(format, t.Typ, t.IntSliceVal)
+	case STR_SLICE:
+		return fmt.Sprintf(format, t.Typ, t.StrSliceVal)
+	default:
+		return fmt.Sprintf(format, t.Typ, t.Val)
 	}
-	if t.Typ == token.INT {
-		return fmt.Sprintf(fomrat, t.Typ, t.IntVal)
-	}
-	return fmt.Sprintf(fomrat, t.Typ, t.Val)
 }
 
 type Lexer struct {
 	Err        error    // 解析时遇到的错误
 	HasParsed  bool     // 是否已经解析过
 	SourceCode string   // 原表达式
-	Tokens     []*Token // 解析的结果，是一个合法的逆波兰表达式的 token 序列
+	Params     []*Param // 解析的结果，是一个合法的逆波兰表达式的参数序列
 
 	ExecWhenWalk func(node ast.Node) // 可以自定义的函数，针对 AST 上的每个节点都会执行
 }
@@ -68,14 +48,14 @@ type Lexer struct {
 func NewLexer(sourceCode string) *Lexer {
 	return &Lexer{
 		SourceCode: sourceCode,
-		Tokens:     make([]*Token, 0, len(sourceCode)/2),
+		Params:     make([]*Param, 0, len(sourceCode)/2),
 	}
 }
 
 func NewLexerWithTokenSize(sourceCode string, tokenSize int) *Lexer {
 	return &Lexer{
 		SourceCode: sourceCode,
-		Tokens:     make([]*Token, 0, tokenSize),
+		Params:     make([]*Param, 0, tokenSize),
 	}
 }
 
@@ -148,7 +128,7 @@ func (l *Lexer) handleOneNode(node ast.Node) (shouldStop bool) {
 
 // 处理二元表达式
 func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
-	if !isValidTokenType[be.Op] {
+	if golangToken2Token[be.Op] == INVALID {
 		l.Err = invalidTokenError(be.Op, be.OpPos)
 		return false
 	}
@@ -180,13 +160,13 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 		}
 	}
 
-	l.Tokens = append(l.Tokens, &Token{Typ: be.Op, Val: be.Op.String()})
+	l.Params = append(l.Params, &Param{Typ: golangToken2Token[be.Op], Val: be.Op.String()})
 	return true
 }
 
 // 处理一元表达式
 func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
-	if !isValidTokenType[ue.Op] {
+	if golangToken2Token[ue.Op] == INVALID {
 		l.Err = invalidTokenError(ue.Op, ue.OpPos)
 		return false
 	}
@@ -205,13 +185,13 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 		}
 	}
 
-	l.Tokens = append(l.Tokens, &Token{Typ: ue.Op, Val: ue.Op.String()})
+	l.Params = append(l.Params, &Param{Typ: golangToken2Token[ue.Op], Val: ue.Op.String()})
 	return true
 }
 
 // 处理数字或字符串
 func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
-	if !isValidTokenType[lt.Kind] {
+	if golangToken2Token[lt.Kind] == INVALID {
 		l.Err = invalidTokenError(lt.Kind, lt.Pos())
 		return false
 	}
@@ -219,10 +199,10 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 	switch lt.Kind {
 	case token.INT:
 		intVal, _ := strconv.ParseInt(lt.Value, 10, 64)
-		l.Tokens = append(l.Tokens, &Token{Typ: lt.Kind, Val: lt.Value, IntVal: int(intVal)})
+		l.Params = append(l.Params, &Param{Typ: INT, Val: lt.Value, IntVal: int(intVal)})
 
 	case token.STRING:
-		l.Tokens = append(l.Tokens, &Token{Typ: lt.Kind, Val: strings.Trim(lt.Value, `"`)})
+		l.Params = append(l.Params, &Param{Typ: STRING, Val: strings.Trim(lt.Value, `"`)})
 
 	default:
 		return false
@@ -235,9 +215,9 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 	if isBoolIdent(it) {
 		boolVal, _ := strconv.ParseBool(it.Name)
-		l.Tokens = append(l.Tokens, &Token{Typ: token.IDENT, IsBoolean: true, BoolVal: boolVal})
+		l.Params = append(l.Params, &Param{Typ: BOOLEAN, BoolVal: boolVal})
 	} else {
-		l.Tokens = append(l.Tokens, &Token{Typ: token.IDENT, Val: it.Name})
+		l.Params = append(l.Params, &Param{Typ: IDENT, Val: it.Name})
 	}
 
 	return true

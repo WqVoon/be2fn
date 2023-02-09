@@ -12,8 +12,8 @@ func TestLexer(t *testing.T) {
 		t.Fatalf("faild to parse expr, err: %v\n", err)
 	}
 
-	for _, token := range l.Tokens {
-		t.Logf("%+v\n", token)
+	for _, param := range l.Params {
+		t.Logf("%+v\n", param)
 	}
 }
 

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"errors"
-	"go/token"
 )
 
 // 一个可以被执行并获取结果的函数
@@ -79,9 +78,9 @@ type OperatorFuncs struct {
 }
 
 // 运算符函数集的默认实现
-var DefaultOperatorSet = map[token.Token]OperatorFuncs{
+var DefaultOperatorSet = map[Token]OperatorFuncs{
 	// ==
-	token.EQL: {
+	EQL: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)
@@ -144,7 +143,7 @@ var DefaultOperatorSet = map[token.Token]OperatorFuncs{
 	},
 
 	// !=
-	token.NEQ: {
+	NEQ: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)
@@ -207,7 +206,7 @@ var DefaultOperatorSet = map[token.Token]OperatorFuncs{
 	},
 
 	// <
-	token.LSS: {
+	LSS: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)
@@ -254,7 +253,7 @@ var DefaultOperatorSet = map[token.Token]OperatorFuncs{
 	},
 
 	// <=
-	token.LEQ: {
+	LEQ: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)
@@ -301,7 +300,7 @@ var DefaultOperatorSet = map[token.Token]OperatorFuncs{
 	},
 
 	// >
-	token.GTR: {
+	GTR: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)
@@ -348,7 +347,7 @@ var DefaultOperatorSet = map[token.Token]OperatorFuncs{
 	},
 
 	// >=
-	token.GEQ: {
+	GEQ: {
 		VarToInt: func(varname string, val int) Unit {
 			return func(vars Kv) (bool, error) {
 				intVal, err := vars.GetInt(varname)

@@ -16,7 +16,7 @@ func TestNotAndOr(t *testing.T) {
 		t.Fatal("faild to call Parse, err:", err)
 	}
 
-	for _, tkn := range lex.Tokens {
+	for _, tkn := range lex.Params {
 		t.Log(tkn)
 	}
 
