@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -150,34 +149,29 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 	}
 
 	if be.Op == token.SUB { // 二元表达式的操作符不能为减号，减号只能被用于表示负数
-		l.Err = errors.New("`-` can only be used for negative numbers")
-		return false
+		return l.WithErr("`-` can only be used for negative numbers")
 	}
 
 	if be.Op == token.LAND || be.Op == token.LOR { // and/or 的子表达式必须为二元表达式或括号包裹的二元表达式
 		_, xIsBE := be.X.(*ast.BinaryExpr)
 		if !xIsBE && !isParenExprwithBinaryExpr(be.X) && !isUnaryExprWithNotOp(be.X) {
-			l.Err = fmt.Errorf("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
-			return false
+			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
 		}
 
 		_, yIsBE := be.Y.(*ast.BinaryExpr)
 		if !yIsBE && !isParenExprwithBinaryExpr(be.Y) && !isUnaryExprWithNotOp(be.Y) {
-			l.Err = fmt.Errorf("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
-			return false
+			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
 		}
 	}
 
 	if isBasicLit(be.X) && isBasicLit(be.Y) { // 不支持操作数均为常量的判断
-		l.Err = fmt.Errorf("both subExpr of `%s` is BasicLit, err at %v", be.Op, be.OpPos)
-		return false
+		return l.WithErr("both subExpr of `%s` is BasicLit, err at %v", be.Op, be.OpPos)
 	}
 
 	if isIdent(be.X) && isIdent(be.Y) { // 不支持操作数均为变量或布尔值的判断
 		xIsBool, yIsBool := isBoolIdent(be.X.(*ast.Ident)), isBoolIdent(be.Y.(*ast.Ident))
 		if (xIsBool && yIsBool) || (!xIsBool && !yIsBool) {
-			l.Err = fmt.Errorf("both subExpr of `%s` is BoolValue or Ident, err at %v", be.Op, be.OpPos)
-			return false
+			return l.WithErr("both subExpr of `%s` is BoolValue or Ident, err at %v", be.Op, be.OpPos)
 		}
 	}
 
@@ -195,8 +189,7 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 	switch ue.Op {
 	case token.NOT:
 		if !isParenExprwithBinaryExpr(ue.X) && !isCallExpr(ue.X) { // not 的子表达式必须是括号包裹的二元表达式或函数调用
-			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr(with BinaryExpr) or CallExpr, err at %v", ue.OpPos)
-			return false
+			return l.WithErr("`not`'s subExpr must be ParenExpr(with BinaryExpr) or CallExpr, err at %v", ue.OpPos)
 		}
 
 	case token.SUB:
@@ -226,7 +219,7 @@ func (l *Lexer) handleBasicLit(lt *ast.BasicLit) (isValid bool) {
 		l.Params = append(l.Params, &Param{Typ: STRING, Val: strings.Trim(lt.Value, `"`)})
 
 	default:
-		return false
+		return l.WithErr("invalid BasicLit, kind(%v)", lt.Kind)
 	}
 
 	return true
@@ -248,8 +241,7 @@ func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 	typ, ok := cl.Type.(*ast.ArrayType)
 	if !ok {
-		l.Err = fmt.Errorf("invalid CompositeLit, err at %v", cl.Type.Pos())
-		return false
+		return l.WithErr("invalid CompositeLit, err at %v", cl.Type.Pos())
 	}
 
 	arrayTyp := typ.Elt.(*ast.Ident).Name
@@ -259,8 +251,7 @@ func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 		for _, elem := range cl.Elts {
 			bl, ok := elem.(*ast.BasicLit)
 			if !ok || bl.Kind != token.INT {
-				l.Err = fmt.Errorf("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
-				return false
+				return l.WithErr("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
 			}
 			intVal, _ := strconv.ParseInt(bl.Value, 10, 64) // 相信 golang 的 AST，不会有解析失败的现象
 			s = append(s, int(intVal))
@@ -273,8 +264,7 @@ func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 		for _, elem := range cl.Elts {
 			bl, ok := elem.(*ast.BasicLit)
 			if !ok || bl.Kind != token.STRING {
-				l.Err = fmt.Errorf("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
-				return false
+				return l.WithErr("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
 			}
 			s = append(s, strings.Trim(bl.Value, `"`))
 		}
@@ -282,8 +272,7 @@ func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 		return true
 
 	default: // 不支持其他类型
-		l.Err = fmt.Errorf("invalid array type(%v), err at %v", arrayTyp, cl.Type.Pos())
-		return false
+		return l.WithErr("invalid array type(%v), err at %v", arrayTyp, cl.Type.Pos())
 	}
 }
 
@@ -291,31 +280,33 @@ func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 func (l *Lexer) handleCallExpr(ce *ast.CallExpr) (isValid bool) {
 	fnName, ok := ce.Fun.(*ast.Ident)
 	if !ok {
-		l.Err = fmt.Errorf("invalid func call, err at %v", ce.Pos())
-		return false
+		return l.WithErr("invalid func call, err at %v", ce.Pos())
 	}
 
 	switch fnName.Name {
 	case "in":
 		if len(ce.Args) != 2 {
-			l.Err = fmt.Errorf("`in` func must have 2 args, err at %v", ce.Pos())
-			return false
+			return l.WithErr("`in` func must have 2 args, err at %v", ce.Pos())
 		}
 
 		// in 函数的第一个参数必须是标识符，第二个参数必须是一个切片
 		if !isIdent(ce.Args[0]) || !isCompositeLit(ce.Args[1]) {
-			l.Err = fmt.Errorf("`in` func's signature is in(ident, []int) or in(ident, []string), err at %v", ce.Pos())
-			return false
+			return l.WithErr("`in` func's signature is in(ident, []int) or in(ident, []string), err at %v", ce.Pos())
 		}
 
 		l.Params = append(l.Params, &Param{Typ: FUNC, Val: fnName.Name})
 
 	default:
-		l.Err = fmt.Errorf("invalid builtin func(%v), err at %v", fnName.Name, ce.Pos())
-		return false
+		return l.WithErr("invalid builtin func(%v), err at %v", fnName.Name, ce.Pos())
 	}
 
 	return true
+}
+
+// 设置 Err 并返回的 shortcut
+func (l *Lexer) WithErr(format string, vars ...interface{}) bool {
+	l.Err = fmt.Errorf(format, vars...)
+	return false
 }
 
 // 生成无效 token 的错误信息
