@@ -20,7 +20,7 @@ func NewCompiler(l *Lexer) *Compiler {
 func (c *Compiler) Compile() (Unit, error) {
 	for _, t := range c.lex.Params {
 		switch t.Typ {
-		case IDENT, INT, STRING, BOOLEAN: // 操作数直接入栈供操作符使用
+		case IDENT, INT, STRING, BOOLEAN, INT_SLICE, STR_SLICE: // 操作数直接入栈供操作符使用
 			c.literals = append(c.literals, t)
 
 		case SUB: // 出现减号说明有负数，取栈顶的一个 literal 做处理
@@ -56,6 +56,13 @@ func (c *Compiler) Compile() (Unit, error) {
 
 		case EQL, NEQ, LSS, LEQ, GTR, GEQ:
 			u, err := c.handleOperator(t.Typ)
+			if err != nil {
+				return nil, err
+			}
+			c.units = append(c.units, u)
+
+		case FUNC:
+			u, err := c.handleFuncCall(t.Val)
 			if err != nil {
 				return nil, err
 			}
@@ -114,4 +121,29 @@ func (c *Compiler) handleOperator(t Token) (Unit, error) {
 
 	// 不该出现的情况
 	return nil, fmt.Errorf("invalid `%s` token", t)
+}
+
+// 处理函数调用
+func (c *Compiler) handleFuncCall(name string) (Unit, error) {
+	if len(c.literals) < 2 {
+		return nil, fmt.Errorf("invalid `%s` func call", name)
+	}
+
+	lastIdx := len(c.literals) - 1
+	x, y := c.literals[lastIdx-1], c.literals[lastIdx]
+	c.literals = c.literals[:lastIdx-1]
+
+	switch name {
+	case "in":
+		if x.Typ == IDENT && y.Typ == STR_SLICE { // in(a, []string{})
+			return InStrSlice(x.Val, y.StrSliceVal), nil
+		} else if x.Typ == IDENT && y.Typ == INT_SLICE { // in(a, []int{})
+			return InIntSlice(x.Val, y.IntSliceVal), nil
+		} else {
+			return nil, fmt.Errorf("invalid `%s` func args", name)
+		}
+
+	default:
+		return nil, fmt.Errorf("invalid `%s` func call", name)
+	}
 }
