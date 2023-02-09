@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -130,6 +131,11 @@ func (l *Lexer) handleOneNode(node ast.Node) (shouldStop bool) {
 func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 	if golangToken2Token[be.Op] == INVALID {
 		l.Err = invalidTokenError(be.Op, be.OpPos)
+		return false
+	}
+
+	if be.Op == token.SUB { // 二元表达式的操作符不能为减号，减号只能被用于表示负数
+		l.Err = errors.New("`-` can only be used for negative numbers")
 		return false
 	}
 
