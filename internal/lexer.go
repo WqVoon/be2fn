@@ -154,13 +154,13 @@ func (l *Lexer) handleBinaryExpr(be *ast.BinaryExpr) (isValid bool) {
 
 	if be.Op == token.LAND || be.Op == token.LOR { // and/or 的子表达式必须为二元表达式或括号包裹的二元表达式
 		_, xIsBE := be.X.(*ast.BinaryExpr)
-		if !xIsBE && !isParenExprwithBinaryExpr(be.X) && !isUnaryExprWithNotOp(be.X) {
-			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
+		if !xIsBE && !isParenExprwithBinaryExpr(be.X) && !isUnaryExprWithNotOp(be.X) && !isCallExpr(be.X) {
+			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op) or CallExpr, err at %v", be.Op, be.OpPos)
 		}
 
 		_, yIsBE := be.Y.(*ast.BinaryExpr)
-		if !yIsBE && !isParenExprwithBinaryExpr(be.Y) && !isUnaryExprWithNotOp(be.Y) {
-			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op), err at %v", be.Op, be.OpPos)
+		if !yIsBE && !isParenExprwithBinaryExpr(be.Y) && !isUnaryExprWithNotOp(be.Y) && !isCallExpr(be.Y) {
+			return l.WithErr("`%s`'s subExpr must be BinaryExpr or ParenExpr(with BinaryExpr) or UnaryExpr(with `not` op) or CallExpr, err at %v", be.Op, be.OpPos)
 		}
 	}
 
