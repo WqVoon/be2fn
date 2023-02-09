@@ -194,8 +194,8 @@ func (l *Lexer) handleUnaryExpr(ue *ast.UnaryExpr) (isValid bool) {
 
 	switch ue.Op {
 	case token.NOT:
-		if !isParenExprwithBinaryExpr(ue.X) { // not 的子表达式必须是括号包裹的二元表达式
-			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr(with BinaryExpr), err at %v", ue.OpPos)
+		if !isParenExprwithBinaryExpr(ue.X) && !isCallExpr(ue.X) { // not 的子表达式必须是括号包裹的二元表达式或函数调用
+			l.Err = fmt.Errorf("`not`'s subExpr must be ParenExpr(with BinaryExpr) or CallExpr, err at %v", ue.OpPos)
 			return false
 		}
 
@@ -364,4 +364,10 @@ func isUnaryExprWithNotOp(expr ast.Expr) bool {
 		return false
 	}
 	return be.Op == token.NOT
+}
+
+// 判断 expr 是否为函数调用表达式
+func isCallExpr(expr ast.Expr) bool {
+	_, ok := expr.(*ast.CallExpr)
+	return ok
 }

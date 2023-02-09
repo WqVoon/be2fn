@@ -79,6 +79,7 @@ func TestIn(t *testing.T) {
 		Expr     string
 		SubCases []Pair
 	}{
+		// in
 		{"in(a, []int{1,2,3})", []Pair{
 			{Kv{"a": 0}, false},
 			{Kv{"a": 1}, true},
@@ -93,6 +94,23 @@ func TestIn(t *testing.T) {
 			{Kv{"a": "2"}, true},
 			{Kv{"a": "3"}, true},
 			{Kv{"a": "4"}, false},
+		}},
+
+		// not in
+		{"! in(a, []int{1,2,3})", []Pair{
+			{Kv{"a": 0}, true},
+			{Kv{"a": 1}, false},
+			{Kv{"a": 2}, false},
+			{Kv{"a": 3}, false},
+			{Kv{"a": 4}, true},
+		}},
+
+		{`! in(a, []string{"1","2","3"})`, []Pair{
+			{Kv{"a": "0"}, true},
+			{Kv{"a": "1"}, false},
+			{Kv{"a": "2"}, false},
+			{Kv{"a": "3"}, false},
+			{Kv{"a": "4"}, true},
 		}},
 	}
 
