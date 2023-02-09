@@ -20,7 +20,7 @@ type Param struct {
 }
 
 func (t *Param) String() string {
-	const format = "type(%v), val(%v)"
+	const format = "{ type(%v), val(%v) }"
 
 	switch t.Typ {
 	case BOOLEAN:

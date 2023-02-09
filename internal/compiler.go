@@ -41,7 +41,6 @@ func (c *Compiler) Compile() (Unit, error) {
 		case LAND: // and 逻辑，取栈顶的两个 unit 做处理
 			lastIdx := len(c.units) - 1
 			if len(c.units) < 2 {
-				fmt.Println("units:", c.units)
 				return nil, errors.New("invalid `&&` token")
 			}
 			c.units[lastIdx-1] = And(c.units[lastIdx-1], c.units[lastIdx])
@@ -68,7 +67,7 @@ func (c *Compiler) Compile() (Unit, error) {
 	}
 
 	if len(c.units) != 1 || len(c.literals) != 0 { // 最终应该只剩一个 unit，没有多余的 literal
-		fmt.Println(c.units, c.literals)
+		fmt.Printf("units: %v\nliterals: %v\n", c.units, c.literals)
 		return nil, errors.New("invalid token sequence")
 	}
 	return c.units[0], nil
