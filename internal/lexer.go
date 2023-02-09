@@ -94,6 +94,13 @@ func (l *Lexer) walk(node ast.Node) error {
 		if err := l.walk(n.X); err != nil {
 			return err
 		}
+
+	case *ast.CallExpr:
+		for _, expr := range n.Args {
+			if err := l.walk(expr); err != nil {
+				return err
+			}
+		}
 	}
 
 	l.handleOneNode(node)
@@ -107,25 +114,29 @@ func (l *Lexer) handleOneNode(node ast.Node) (shouldStop bool) {
 	}
 
 	switch expr := node.(type) {
-	case *ast.BinaryExpr:
+	case *ast.BinaryExpr: // 二元表达式
 		// fmt.Println(expr.Op)
 		return !l.handleBinaryExpr(expr)
 
-	case *ast.UnaryExpr:
+	case *ast.UnaryExpr: // 一元表达式
 		// fmt.Println(expr.Op)
 		return !l.handleUnaryExpr(expr)
 
-	case *ast.BasicLit:
+	case *ast.BasicLit: // 数字或字符串
 		// fmt.Println(expr.Value)
 		return !l.handleBasicLit(expr)
 
-	case *ast.Ident:
+	case *ast.Ident: // 标识符或布尔值
 		// fmt.Println(expr.Name)
 		return !l.handleIdent(expr)
 
-	case *ast.CompositeLit:
+	case *ast.CompositeLit: // 切片
 		// fmt.Println(expr.Type, expr.Elts)
 		return !l.handleCompositeLit(expr)
+
+	case *ast.CallExpr: // 函数调用
+		// fmt.Println(expr.Fun, expr.Args)
+		return !l.handleCallExpr(expr)
 	}
 
 	return
@@ -276,6 +287,37 @@ func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
 	}
 }
 
+// 处理函数调用
+func (l *Lexer) handleCallExpr(ce *ast.CallExpr) (isValid bool) {
+	fnName, ok := ce.Fun.(*ast.Ident)
+	if !ok {
+		l.Err = fmt.Errorf("invalid func call, err at %v", ce.Pos())
+		return false
+	}
+
+	switch fnName.Name {
+	case "in":
+		if len(ce.Args) != 2 {
+			l.Err = fmt.Errorf("`in` func must have 2 args, err at %v", ce.Pos())
+			return false
+		}
+
+		// in 函数的第一个参数必须是标识符，第二个参数必须是一个切片
+		if !isIdent(ce.Args[0]) || !isCompositeLit(ce.Args[1]) {
+			l.Err = fmt.Errorf("`in` func's signature is in(ident, []int) or in(ident, []string), err at %v", ce.Pos())
+			return false
+		}
+
+		l.Params = append(l.Params, &Param{Typ: FUNC, Val: fnName.Name})
+
+	default:
+		l.Err = fmt.Errorf("invalid builtin func(%v), err at %v", fnName.Name, ce.Pos())
+		return false
+	}
+
+	return true
+}
+
 // 生成无效 token 的错误信息
 func invalidTokenError(t token.Token, pos token.Pos) error {
 	return fmt.Errorf("invalid token(%q) at position(%v)", t, pos)
@@ -291,6 +333,12 @@ func isIdent(expr ast.Expr) bool {
 func isBasicLit(expr ast.Expr) bool {
 	_, isBasicLit := expr.(*ast.BasicLit)
 	return isBasicLit
+}
+
+// 判断 expr 是否是复合类型
+func isCompositeLit(expr ast.Expr) bool {
+	_, isCompositeLit := expr.(*ast.CompositeLit)
+	return isCompositeLit
 }
 
 func isBoolIdent(ident *ast.Ident) bool {
