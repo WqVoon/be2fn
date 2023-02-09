@@ -82,3 +82,29 @@ func TestBinaryExpr(t *testing.T) {
 		}
 	}
 }
+
+func TestSlice(t *testing.T) {
+	cases := []struct {
+		Expr        string
+		ShouldError bool
+	}{
+		{"[]int{}", false},
+		{"[]int", false},
+		{"[1]int{}", false},
+		{"[]int{1}", false},
+		{"[]int{1, 2}", false},
+		{"[]int{1, 2, \"3\"}", true},
+		{"[]uint{1}", true},
+		{"[]string{}", false},
+		{"[]string{\"1\"}", false},
+		{"[]string{\"1\", 2}", true},
+	}
+
+	for i, c := range cases {
+		hasError := (NewLexer(c.Expr).Parse() != nil)
+
+		if c.ShouldError && !hasError || !c.ShouldError && hasError {
+			t.Fatalf("failed to test %d, expr: %q, shoudError: %v", i, c.Expr, c.ShouldError)
+		}
+	}
+}

@@ -122,6 +122,10 @@ func (l *Lexer) handleOneNode(node ast.Node) (shouldStop bool) {
 	case *ast.Ident:
 		// fmt.Println(expr.Name)
 		return !l.handleIdent(expr)
+
+	case *ast.CompositeLit:
+		// fmt.Println(expr.Type, expr.Elts)
+		return !l.handleCompositeLit(expr)
 	}
 
 	return
@@ -227,6 +231,49 @@ func (l *Lexer) handleIdent(it *ast.Ident) (isValid bool) {
 	}
 
 	return true
+}
+
+// 处理字符串切片或数字切片
+func (l *Lexer) handleCompositeLit(cl *ast.CompositeLit) (isValid bool) {
+	typ, ok := cl.Type.(*ast.ArrayType)
+	if !ok {
+		l.Err = fmt.Errorf("invalid CompositeLit, err at %v", cl.Type.Pos())
+		return false
+	}
+
+	arrayTyp := typ.Elt.(*ast.Ident).Name
+	switch arrayTyp {
+	case "int": // []int
+		s := make([]int, 0, len(cl.Elts))
+		for _, elem := range cl.Elts {
+			bl, ok := elem.(*ast.BasicLit)
+			if !ok || bl.Kind != token.INT {
+				l.Err = fmt.Errorf("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
+				return false
+			}
+			intVal, _ := strconv.ParseInt(bl.Value, 10, 64) // 相信 golang 的 AST，不会有解析失败的现象
+			s = append(s, int(intVal))
+		}
+		l.Params = append(l.Params, &Param{Typ: INT_SLICE, IntSliceVal: s})
+		return true
+
+	case "string": // []string
+		s := make([]string, 0, len(cl.Elts))
+		for _, elem := range cl.Elts {
+			bl, ok := elem.(*ast.BasicLit)
+			if !ok || bl.Kind != token.STRING {
+				l.Err = fmt.Errorf("invalid array elem(%v), err at %v", bl.Value, elem.Pos())
+				return false
+			}
+			s = append(s, strings.Trim(bl.Value, `"`))
+		}
+		l.Params = append(l.Params, &Param{Typ: STR_SLICE, StrSliceVal: s})
+		return true
+
+	default: // 不支持其他类型
+		l.Err = fmt.Errorf("invalid array type(%v), err at %v", arrayTyp, cl.Type.Pos())
+		return false
+	}
 }
 
 // 生成无效 token 的错误信息
