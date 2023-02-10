@@ -136,3 +136,16 @@ func TestFunc(t *testing.T) {
 		}
 	}
 }
+
+func TestSelectorExpr(t *testing.T) {
+	expr := `a.b.c.d`
+
+	lex := NewLexer(expr)
+	if err := lex.Parse(); err != nil {
+		t.Fatal("failed to parse, err:", err)
+	}
+
+	for _, p := range lex.Params {
+		t.Log(p)
+	}
+}

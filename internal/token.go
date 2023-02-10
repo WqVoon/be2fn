@@ -30,7 +30,10 @@ const (
 	LEQ  // <=
 	GTR  // >
 	GEQ  // >=
+
+	// 特殊标记，遇到时要做一些动作
 	FUNC // 函数调用
+	DOT  // `a.b.c` 这种字段选择表达式中的 `.`，Compiler 遇到时会把前两个 ident 合并
 )
 
 // 将 token 转换成对应的字符串表示
@@ -58,7 +61,9 @@ var token2String = map[Token]string{
 	LEQ:  "<=",
 	GTR:  ">",
 	GEQ:  ">=",
+
 	FUNC: "func",
+	DOT:  ".",
 }
 
 func (t Token) String() string {

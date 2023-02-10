@@ -100,6 +100,11 @@ func (l *Lexer) walk(node ast.Node) error {
 				return err
 			}
 		}
+
+	case *ast.SelectorExpr:
+		if err := l.walk(n.X); err != nil {
+			return err
+		}
 	}
 
 	l.handleOneNode(node)
@@ -136,6 +141,9 @@ func (l *Lexer) handleOneNode(node ast.Node) (shouldStop bool) {
 	case *ast.CallExpr: // 函数调用
 		// fmt.Println(expr.Fun, expr.Args)
 		return !l.handleCallExpr(expr)
+
+	case *ast.SelectorExpr: // 选择表达式，X 已经处理过，只处理 Sel 即可
+		return !l.handleSelectorExpr(expr)
 	}
 
 	return
@@ -303,6 +311,17 @@ func (l *Lexer) handleCallExpr(ce *ast.CallExpr) (isValid bool) {
 	return true
 }
 
+// 处理选择表达式，其中的 X 已经在 walk 里提前处理了，这里只需要在 Params 里处理 Sel 和表达式本身即可
+func (l *Lexer) handleSelectorExpr(se *ast.SelectorExpr) (isValid bool) {
+	if !isSelectorExpr(se.X) && !isIdent(se.X) {
+		return l.WithErr("SelectorExpr.X must be SelectorExpr or Ident, err at %v", se.Pos())
+	}
+
+	l.Params = append(l.Params, &Param{Typ: IDENT, Val: se.Sel.Name})
+	l.Params = append(l.Params, &Param{Typ: DOT})
+	return false
+}
+
 // 设置 Err 并返回的 shortcut
 func (l *Lexer) WithErr(format string, vars ...interface{}) bool {
 	l.Err = fmt.Errorf(format, vars...)
@@ -360,5 +379,11 @@ func isUnaryExprWithNotOp(expr ast.Expr) bool {
 // 判断 expr 是否为函数调用表达式
 func isCallExpr(expr ast.Expr) bool {
 	_, ok := expr.(*ast.CallExpr)
+	return ok
+}
+
+// 判断 expr 是否为字段选择表达式
+func isSelectorExpr(expr ast.Expr) bool {
+	_, ok := expr.(*ast.SelectorExpr)
 	return ok
 }
