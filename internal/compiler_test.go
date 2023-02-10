@@ -145,3 +145,66 @@ func TestIn(t *testing.T) {
 		t.Logf("test case %d pass", idx)
 	}
 }
+
+func TestDot(t *testing.T) {
+	type Pair struct {
+		Vars Kv
+		Ret  bool
+	}
+
+	cases := []struct {
+		Expr     string
+		SubCases []Pair
+	}{
+		{"a.b == 1", []Pair{
+			{Kv{"a.b": 0}, false},
+			{Kv{"a.b": 1}, true},
+			{Kv{"a.b": 2}, false},
+		}},
+
+		{`a.b.c < 1`, []Pair{
+			{Kv{"a.b.c": 0}, true},
+			{Kv{"a.b.c": 1}, false},
+			{Kv{"a.b.c": 2}, false},
+		}},
+
+		{"a.b.c.d > 1", []Pair{
+			{Kv{"a.b.c.d": 0}, false},
+			{Kv{"a.b.c.d": 1}, false},
+			{Kv{"a.b.c.d": 2}, true},
+			{Kv{"a.b.c.d": 3}, true},
+			{Kv{"a.b.c.d": 4}, true},
+		}},
+	}
+
+	for idx, c := range cases {
+		t.Logf("start to test case %d", idx)
+
+		lex := NewLexer(c.Expr)
+		if err := lex.Parse(); err != nil {
+			t.Fatalf("faild to parse %q, err: %v", c.Expr, err)
+		}
+
+		for _, tkn := range lex.Params {
+			t.Log(tkn)
+		}
+
+		fn, err := NewCompiler(lex).Compile()
+		if err != nil {
+			t.Fatalf("failed to compile %q, err: %v", c.Expr, err)
+		}
+
+		for _, pair := range c.SubCases {
+			ret, err := fn(pair.Vars)
+			if err != nil {
+				t.Fatalf("failed to call fn for expr(%v) with kv(%v), err: %v", c.Expr, pair.Vars, err)
+			}
+
+			if ret != pair.Ret {
+				t.Fatalf("failed to call fn for expr(%v) with kv(%v), shouldRet: %v", c.Expr, pair.Vars, pair.Ret)
+			}
+		}
+
+		t.Logf("test case %d pass", idx)
+	}
+}

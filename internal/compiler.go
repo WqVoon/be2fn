@@ -68,6 +68,15 @@ func (c *Compiler) Compile() (Unit, error) {
 			}
 			c.units = append(c.units, u)
 
+		case DOT:
+			lastIdx := len(c.literals) - 1
+			if len(c.literals) < 2 {
+				return nil, errors.New("invalid `.` token")
+			}
+			x, y := c.literals[lastIdx-1], c.literals[lastIdx]
+			c.literals = c.literals[:lastIdx-1]
+			c.literals = append(c.literals, &Param{Typ: IDENT, Val: x.Val + "." + y.Val})
+
 		default: // 剩下的 token 被认为是无效的
 			return nil, fmt.Errorf("invalid `%s` token", t.Typ)
 		}
